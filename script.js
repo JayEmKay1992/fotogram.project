@@ -24,6 +24,8 @@ const photoCounter = document.getElementById("photo-counter");
 const closeModal = document.querySelector(".close-modal");
 const prevBtn = document.getElementById("prev-photo");
 const nextBtn = document.getElementById("next-photo");
+const likeBtn = document.getElementById("like-button");
+const heartIcon = document.getElementById("heart-icon");
 
 function renderGallery() {
     if (!photoGrid) {
@@ -77,6 +79,8 @@ function openModal(imgData) {
     const closeModalBtn = modal.querySelector(".close-modal");
     closeModalBtn.tabIndex = 0; // Ensure close button is focusable
     closeModalBtn.focus(); // Set initial focus to close button
+
+    updateLikeStatus();
 }
 
 function handleClose() {
@@ -92,11 +96,13 @@ function handleClose() {
 function showNextPhoto() {
     currentPhotoIndex = (currentPhotoIndex + 1) % shuffledImages.length;
     openModal();
+    updateLikeStatus();
 }
 
 function showPrevPhoto() {
     currentPhotoIndex = (currentPhotoIndex - 1 + shuffledImages.length) % shuffledImages.length;
-    openModal()
+    openModal();
+    updateLikeStatus();
 }
 
 if (nextBtn) {nextBtn.addEventListener("click", showNextPhoto);} else {console.error("Next button not found");}
@@ -150,6 +156,45 @@ function trapFocus(e) {
             firstFocusableElement.focus();
         }
     }
+}
+
+function updateLikeStatus() {
+    const currentImgData = shuffledImages[currentPhotoIndex];
+    const likedImages = JSON.parse(localStorage.getItem("fotogram_likes") || "{}");
+
+    if (likedImages[currentImgData.id]) {
+        heartIcon.classList.add("liked");
+    } else {
+        heartIcon.classList.remove("liked");
+    }
+}
+
+likeBtn.addEventListener("click", toggleLike);
+likeBtn.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault(); // Prevent default scroll behavior for space key
+        toggleLike();
+    }
+});
+
+function toggleLike() {
+    const currentImgData = shuffledImages[currentPhotoIndex];
+    let likedImages = JSON.parse(localStorage.getItem("fotogram_likes") || "{}");
+
+    if (likedImages[currentImgData.id]) {
+        delete likedImages[currentImgData.id];
+        heartIcon.classList.remove("liked");
+    } else {
+        likedImages[currentImgData.id] = true;
+        heartIcon.classList.add("liked");
+    }
+
+    heartIcon.classList.add("animating");
+    setTimeout(() => {  
+        heartIcon.classList.remove("animating");
+    }, 300);
+
+    localStorage.setItem("fotogram_likes", JSON.stringify(likedImages));
 }
 
 renderGallery();
