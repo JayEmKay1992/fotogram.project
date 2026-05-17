@@ -27,51 +27,35 @@ function init() {
 }
 
 function renderGallery() {
-    const photoGrid = document.getElementById("photo-grid");
-
-    let galleryHTML = ""; // Variable für die HTML-Struktur der Galerie
-
-    shuffledImages.forEach((img, index) => {
-        galleryHTML += `
-            <div class="photo-item" tabindex="0" role="button" onclick="openModal(${index})">
-                <img src="${img.url}" alt="${img.alt}" title="${img.title}">
-            </div>
-        `; // HTML-Struktur für jedes Bild in der Galerie erstellen
-    });
-
-    photoGrid.innerHTML = galleryHTML; // HTML-Struktur in das DOM einfügen
+    document.getElementById("photo-grid").innerHTML = shuffledImages.map((img, index) => `
+        <button class="photo-item" data-index="${index}" aria-label="Foto: ${img.title} anzeigen">
+            <img src="${img.url}" alt="${img.alt}">
+        </button>
+    `).join(""); // HTML für jedes Foto generieren und in den photo-grid Container einfügen
 }
 
 /* Nachfolgend erstelle ich die Funktion für das Modal, das geöffnet wird, 
 wenn ein Bild angeklickt wird. Diese Funktion erhält den Index des angeklickten Bildes als Parameter, 
 damit ich die entsprechenden Daten aus dem shuffledImages-Array abrufen kann. */
 
-function openModal (index) {
-    currentPhotoIndex = index; // Aktuellen Index des angeklickten Bildes speichern
+function openModal(index) {
+   currentPhotoIndex = index; // Aktuellen Index des angeklickten Fotos speichern, damit ich später zwischen den Fotos navigieren kann
+   const modal = document.getElementById("photo-modal");
+   const imgData = shuffledImages[currentPhotoIndex]; // Daten des angeklickten Fotos aus dem shuffledImages-Array abrufen
 
-    const imgData = shuffledImages[index]; // Bilddaten aus dem shuffledImages-Array abrufen
+   document.getElementById("modal-img").src = imgData.url; // Bild-URL im Modal setzen
+   document.getElementById("modal-img").alt = imgData.alt; // Alt-Text im Modal setzen
+   document.getElementById("modal-caption").textContent = imgData.title; // Titel im Modal setzen
+   document.getElementById("photo-counter").textContent = `${currentPhotoIndex + 1} / ${shuffledImages.length}`; // Fotocounter im Modal aktualisieren
 
-    const modal = document.getElementById("photo-modal");
-    const modalImg = document.getElementById("modal-img");
-    const modalCaption = document.getElementById("modal-caption");
-    const photoCounter = document.getElementById("photo-counter"); 
-
-    // Modal mit den entsprechenden Bilddaten füllen 
-
-    modalImg.src = imgData.url; // Bildquelle im Modal setzen
-    modalImg.alt = imgData.alt; // Alt-Text im Modal setzen
-    modalCaption.textContent = imgData.title; // Titel im Modal setzen
-
-    photoCounter.textContent = `${currentPhotoIndex + 1} / ${shuffledImages.length}`; // Fotocounter aktualisieren
-
-    modal.style.display = "flex"; // Modal anzeigen
-
-    updateLikeStatus(); // Like-Status aktualisieren, wenn Modal geöffnet wird
+    modal.showModal(); // Modal anzeigen
+    document.querySelector(".close-modal").focus(); // Fokus auf den Schließen-Button setzen, damit Tastatur-User direkt eine Möglichkeit haben, das Modal zu schließen
+    updateLikeStatus(); // Like-Status im Modal aktualisieren, damit der Nutzer sofort sieht, ob er das Foto bereits geliked hat oder nicht
 }
 
 function closeModal() {
     const modal = document.getElementById("photo-modal");
-    modal.style.display = "none"; // Modal ausblenden
+    modal.close(); // Modal schließen
 }
 
 /**
@@ -85,13 +69,18 @@ function changePhoto(direction){
 
 function updateLikeStatus() {
     const heartIcon = document.getElementById("heart-icon");
+    const likeBtn = document.getElementById("like-btn");
     const currentImgData = shuffledImages[currentPhotoIndex];
     const likes = JSON.parse(localStorage.getItem("fotogram_likes")) || {}; // Objekt aus localStorage abrufen oder leeres Objekt erstellen, wenn keine Daten vorhanden sind
 
     if (likes[currentImgData.id]) {
         heartIcon.classList.add("liked"); // Herz-Icon als "geliked" markieren
+        likeBtn.setAttribute("aria-label", "Gefällt mir nicht mehr"); // ARIA-Label aktualisieren, um den neuen Status widerzuspiegeln
+        likeBtn.setAttribute("aria-pressed", "true"); // ARIA-Pressed-Attribut setzen, um den aktiven Zustand anzuzeigen
     } else {
         heartIcon.classList.remove("liked"); // Herz-Icon als "nicht geliked" markieren
+        likeBtn.setAttribute("aria-label", "Gefällt mir"); // ARIA-Label aktualisieren, um den neuen Status widerzuspiegeln
+        likeBtn.setAttribute("aria-pressed", "false"); // ARIA-Pressed-Attribut setzen, um den inaktiven Zustand anzuzeigen
     }
 }
 
@@ -112,57 +101,38 @@ function toggleLike() {
 }
 
 function setupEventListeners() {
+    const modal = document.getElementById("photo-modal");
+    const photoGrid = document.getElementById("photo-grid");
 
-    document.querySelector(".close-modal").addEventListener("click", closeModal); // Event-Listener für das Schließen des Modals hinzufügen
-
-    document.getElementById("photo-grid").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-            e.preventDefault(); // Standardverhalten verhindern, z.B. Scrollen bei Leertaste
-            const item = e.target.closest(".photo-item"); // Überprüfen, ob das fokussierte Element ein Foto-Item ist
-            if (item) {
-                const index = Array.from(item.parentNode.children).indexOf(item); // Index des angeklickten Foto-Items ermitteln
-                openModal(index); // Modal mit dem entsprechenden Foto öffnen
-            }
-        }
-    }); // Event-Listener für die Galerie hinzufügen, um auch per Tastatur Fotos öffnen zu können
-
-    document.getElementById("prev-photo").addEventListener("click", () => changePhoto(-1)); // Event-Listener für vorheriges Foto hinzufügen
-
-    document.getElementById("next-photo").addEventListener("click", () => changePhoto(1)); // Event-Listener für nächstes Foto hinzufügen
-
-    document.getElementById("like-btn").addEventListener("click", toggleLike); // Event-Listener für Like-Button hinzufügen
-
-
-    window.addEventListener("click", (e) => {
-        const modal = document.getElementById("photo-modal");
-        if (e.target === modal) {
-            closeModal(); // Modal schließen, wenn außerhalb des Bildes geklickt wird
+    photoGrid.addEventListener("click", (event) => {
+        const photoItem = event.target.closest(".photo-item"); 
+        if (photoItem) {
+            const index = parseInt(photoItem.getAttribute("data-index")); // Index des angeklickten Fotos aus dem data-Attribut abrufen
+            openModal(index); // Modal mit dem entsprechenden Foto öffnen
         }
     });
 
-    window.addEventListener("keydown", (e) => {
-        const modal = document.getElementById("photo-modal");
-        if (modal.style.display !== "flex") return; // Überprüfen, ob das Modal geöffnet ist
+    document.querySelector(".close-modal").addEventListener("click", () => modal.close()); // Event-Listener für den Schließen-Button im Modal
+    document.getElementById("prev-photo").addEventListener("click", () => changePhoto(-1)); // Event-Listener für den "Vorheriges Foto"-Button
+    document.getElementById("next-photo").addEventListener("click", () => changePhoto(1)); // Event-Listener für den "Nächstes Foto"-Button
+    document.getElementById("like-btn").addEventListener("click", toggleLike); // Event-Listener für den Like-Button
 
-        if (e.key === "Escape" || e.key === " ") {
-            e.preventDefault(); // Standardverhalten verhindern, z.B. Scrollen bei Leertaste
-            closeModal(); // Modal schließen
-        }
-
-        if (e.key === "ArrowRight") {
-            changePhoto(1); // Zum nächsten Foto wechseln
-        }
-
-        if (e.key === "ArrowLeft") {
-            changePhoto(-1); // Zum vorherigen Foto wechseln
+    modal.addEventListener("click", (event) => {
+        if (event.target === modal) { // Modal schließen, wenn außerhalb des Inhalts geklickt wird
+            modal.close();
         }
     });
+
+    window.addEventListener("keydown", (event) => {
+        if (modal.open) { // Nur Tastatur-Shortcuts aktivieren, wenn das Modal geöffnet ist
+            if (event.key === "ArrowLeft") {
+                changePhoto(-1); // Vorheriges Foto anzeigen
+            } else if (event.key === "ArrowRight") {
+                changePhoto(1); // Nächstes Foto anzeigen
+            } 
+        }
+});
 }
 
-/* Der Like-Button wurde mit tabindex="-1" aus der Tastatur-Reihenfolge genommen, um einen 
-"Focus Trap" zu vermeiden. Derzeit ist er nur per Maus bedienbar. In einer zukünftigen Version 
-könnte ich hier für vollständige Barrierefreiheit/Tastaturunterstützung noch eine Lösung implementieren, 
-um den Like-Button auch per Tastatur erreichbar 
-zu machen, ohne dass Tastatur-User versehentlich Elemente im Hintergrund fokusieren */
 
 init(); // Initialisierungsfunktion aufrufen, um die Galerie zu starten 
